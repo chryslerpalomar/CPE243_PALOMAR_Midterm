@@ -1,0 +1,80 @@
+---
+- hosts: all
+  become: true
+  pre_tasks:
+
+  - name: install update and repositories (CentOS)
+    tags: always
+    yum:
+      name: "*"
+      update_cache: yes
+      state: latest
+    changed_when: false
+    when: ansible_distribution == "CentOS"
+
+  - name: Ensure dpkg is configured (Ubuntu)
+    raw: sudo dpkg --configure -a
+    ignore_errors: yes
+    changed_when: false
+    when: ansible_distribution == "Ubuntu"
+
+  - name: install update and repositories (Ubuntu)
+    tags: always
+    apt:
+      upgrade: yes
+      update_cache: yes
+      cache_valid_time: 86400
+    changed_when: false
+    when: ansible_distribution == "Ubuntu"
+
+- hosts: UbuntuControlNd
+  become: true
+  tasks:
+    - name: Install UFW on Ubuntu
+      apt:
+        name: ufw
+        state: present
+
+    - name: Install HTTP and HTTPS packages on Ubuntu
+      apt:
+        name: 
+          - apache2
+          - openssl
+        state: present
+
+    - name: Set up UFW on Ubuntu
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        state: enabled
+      loop:
+        - ssh
+        - http
+        - https
+
+- hosts: CentosControlNd
+  become: true
+  tasks:
+    - name: Install firewalld on CentOS
+      yum:
+        name: firewalld
+        state: present
+
+    - name: Install HTTP and HTTPS packages on CentOS
+      tags: always
+      yum:
+        name:
+          - httpd
+          - mod_ssl
+        state: present
+
+    - name: Set up firewalld on CentOS
+      firewalld:
+        service: "{{ item }}"
+        state: enabled
+        permanent: true
+      loop:
+        - ssh
+        - http
+        - https
+
